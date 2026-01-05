@@ -1,0 +1,23 @@
+# Source files (dist is published, not src)
+src/
+
+# Tests
+tests/
+*.test.ts
+vitest.config.ts
+coverage/
+
+# Config files
+tsconfig.json
+tsup.config.ts
+.eslintrc*
+
+# Development files
+.github/
+.vscode/
+.idea/
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
