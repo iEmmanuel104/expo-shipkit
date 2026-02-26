@@ -7,12 +7,15 @@ import {
   promptProfile,
   promptClearCache,
   promptConfirmation,
+  promptConfirm,
 } from '../../ui/prompts.js';
 import {
   displayVersionStatus,
   displaySyncWarnings,
   displayDeploymentComplete,
   displayDeploymentFailed,
+  displaySecurityAudit,
+  displayErrorSuggestions,
 } from '../../ui/display.js';
 import { loadConfig, isInitialized, getAvailableProfiles } from '../../core/config/loader.js';
 import { DeploymentTracker } from '../../core/deployment/tracker.js';
@@ -21,6 +24,8 @@ import { detectConfigChanges, updateTrackedConfig } from '../../core/deployment/
 import { runBuild } from '../../core/deployment/builder.js';
 import { runSubmit } from '../../core/deployment/submitter.js';
 import { execInteractive } from '../../utils/exec.js';
+import { runSecurityAudit, hasCriticalIssues } from '../../core/security/audit.js';
+import { findSuggestions } from '../../core/errors/suggestions.js';
 import type { Platform, Profile, DeployAction, VersionBumpType, DeploymentSummary } from '../../types/deployment.js';
 
 export const deployCommand = new Command('deploy')
@@ -170,6 +175,26 @@ export const deployCommand = new Command('deploy')
       }
     }
 
+    // Security pre-flight audit
+    if (shouldSubmit) {
+      const auditResults = await runSecurityAudit(cwd);
+      const hasIssues = auditResults.some((r) => r.status !== 'pass');
+
+      if (hasIssues) {
+        logger.step('SECURITY', 'Pre-flight audit');
+        displaySecurityAudit(auditResults);
+
+        if (hasCriticalIssues(auditResults)) {
+          logger.warning('Critical security issues detected.');
+          const continueAnyway = await promptConfirm('Continue with deployment anyway?', false);
+          if (!continueAnyway) {
+            logger.info('Deployment cancelled.');
+            process.exit(0);
+          }
+        }
+      }
+    }
+
     // Execute deployment
     logger.banner('STARTING DEPLOYMENT', 50);
 
@@ -200,7 +225,7 @@ export const deployCommand = new Command('deploy')
             platform,
             profile,
             clearCache: clearCache[platform],
-            config,
+            config: config ?? undefined,
             projectRoot: cwd,
           });
 
@@ -226,7 +251,10 @@ export const deployCommand = new Command('deploy')
         // Run pre-submit hook
         if (config?.hooks?.preSubmit && shouldSubmit) {
           logger.step('HOOK', 'Running pre-submit hook');
-          await execInteractive(config.hooks.preSubmit, { cwd });
+          const preSubmitCode = await execInteractive(config.hooks.preSubmit, { cwd });
+          if (preSubmitCode !== 0) {
+            throw new Error('Pre-submit hook failed');
+          }
         }
 
         // Submit
@@ -267,7 +295,15 @@ export const deployCommand = new Command('deploy')
       }
 
     } catch (error) {
-      displayDeploymentFailed(error instanceof Error ? error.message : 'Unknown error');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      displayDeploymentFailed(errorMessage);
+
+      // Show actionable suggestions
+      const suggestions = findSuggestions(errorMessage);
+      if (suggestions.length > 0) {
+        displayErrorSuggestions(suggestions);
+      }
+
       process.exit(1);
     }
   });

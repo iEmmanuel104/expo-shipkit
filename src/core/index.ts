@@ -2,3 +2,8 @@ export * from './config/index.js';
 export * from './deployment/index.js';
 export * from './version/index.js';
 export * from './credentials/index.js';
+export * from './prerequisites/index.js';
+export * from './generators/index.js';
+export * from './doctor/index.js';
+export * from './errors/index.js';
+export * from './security/index.js';

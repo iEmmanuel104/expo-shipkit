@@ -1,6 +1,6 @@
 {
   "name": "expo-shipkit",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Streamlined deployment workflow for Expo/EAS applications",
   "type": "module",
   "main": "./dist/index.js",

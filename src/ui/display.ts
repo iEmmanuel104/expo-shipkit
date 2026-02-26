@@ -2,6 +2,10 @@ import pc from 'picocolors';
 import type { DeploymentRecord, Profile, Platform, ConfigChange } from '../types/deployment.js';
 import { formatDate } from '../core/deployment/tracker.js';
 import { logger } from './logger.js';
+import type { DoctorSummary } from '../core/doctor/runner.js';
+import type { PrerequisiteResult } from '../core/prerequisites/checker.js';
+import type { AuditResult } from '../core/security/audit.js';
+import type { ErrorSuggestion } from '../core/errors/suggestions.js';
 
 /**
  * Display deployment status for a version
@@ -179,5 +183,99 @@ export function displayInitSuccess(projectName: string): void {
   logger.numberedItem(1, 'Review shipkit.config.ts and customize as needed');
   logger.numberedItem(2, 'Run "shipkit credentials setup" to configure store credentials');
   logger.numberedItem(3, 'Run "shipkit deploy" to start deploying');
+  console.log('');
+}
+
+/**
+ * Display doctor check results
+ */
+export function displayDoctorResults(summary: DoctorSummary): void {
+  const categoryOrder = ['environment', 'project', 'credentials', 'security'] as const;
+  const categoryLabels: Record<string, string> = {
+    environment: 'Environment',
+    project: 'Project',
+    credentials: 'Credentials',
+    security: 'Security',
+  };
+
+  for (const cat of categoryOrder) {
+    const catResults = summary.results.filter((r) => r.category === cat);
+    if (catResults.length === 0) continue;
+
+    console.log('');
+    console.log(pc.bold(`  ${categoryLabels[cat]}`));
+    console.log(pc.dim('  ' + '─'.repeat(45)));
+
+    for (const result of catResults) {
+      const icon = result.status === 'pass'
+        ? pc.green('  [✓]')
+        : result.status === 'warn'
+          ? pc.yellow('  [!]')
+          : pc.red('  [✗]');
+
+      console.log(`${icon} ${result.name}: ${result.message}`);
+      if (result.fix) {
+        console.log(pc.dim(`       Fix: ${result.fix}`));
+      }
+    }
+  }
+
+  // Summary line
+  console.log('');
+  console.log(pc.dim('  ' + '─'.repeat(45)));
+  const parts = [];
+  if (summary.pass > 0) parts.push(pc.green(`${summary.pass} passed`));
+  if (summary.warn > 0) parts.push(pc.yellow(`${summary.warn} warnings`));
+  if (summary.fail > 0) parts.push(pc.red(`${summary.fail} failed`));
+  console.log(`  ${parts.join('  ')}  (${summary.total} checks)`);
+  console.log('');
+}
+
+/**
+ * Display prerequisite check results (used by init wizard)
+ */
+export function displayPrerequisiteResults(results: PrerequisiteResult[]): void {
+  for (const result of results) {
+    const icon = result.status === 'pass'
+      ? pc.green('  [✓]')
+      : result.status === 'warn'
+        ? pc.yellow('  [!]')
+        : pc.red('  [✗]');
+
+    console.log(`${icon} ${result.name}: ${result.message}`);
+    if (result.fix && result.status !== 'pass') {
+      console.log(pc.dim(`       Fix: ${result.fix}`));
+    }
+  }
+}
+
+/**
+ * Display security audit results
+ */
+export function displaySecurityAudit(results: AuditResult[]): void {
+  for (const result of results) {
+    const icon = result.status === 'pass'
+      ? pc.green('  [✓]')
+      : result.status === 'warn'
+        ? pc.yellow('  [!]')
+        : pc.red('  [!]');
+
+    console.log(`${icon} ${result.name}: ${result.message}`);
+  }
+}
+
+/**
+ * Display error suggestions
+ */
+export function displayErrorSuggestions(suggestions: ErrorSuggestion[]): void {
+  if (suggestions.length === 0) return;
+
+  console.log('');
+  for (const suggestion of suggestions) {
+    console.log(pc.cyan(`  Suggestion: ${suggestion.title}`));
+    for (const step of suggestion.steps) {
+      console.log(pc.dim(`    - ${step}`));
+    }
+  }
   console.log('');
 }

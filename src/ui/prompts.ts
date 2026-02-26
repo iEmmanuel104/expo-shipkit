@@ -1,4 +1,4 @@
-import { select, confirm, input } from '@inquirer/prompts';
+import { select, confirm, input, checkbox } from '@inquirer/prompts';
 import type { DeployAction, VersionBumpType, Platform, Profile, DeploymentSummary } from '../types/deployment.js';
 import { colors } from './logger.js';
 
@@ -205,4 +205,65 @@ export async function promptFilePath(message: string, defaultPath?: string): Pro
       return true;
     },
   });
+}
+
+/**
+ * Prompt for iOS bundle identifier
+ */
+export async function promptBundleIdentifier(suggestion?: string): Promise<string> {
+  return input({
+    message: 'iOS Bundle Identifier:',
+    default: suggestion,
+    validate: (value) => {
+      if (!value.trim()) {
+        return 'Bundle identifier is required';
+      }
+      // Reverse-domain format: com.company.appname
+      const pattern = /^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)+$/;
+      if (!pattern.test(value)) {
+        return 'Must be in reverse-domain format (e.g., com.yourcompany.appname)';
+      }
+      return true;
+    },
+  });
+}
+
+/**
+ * Prompt for Android package name
+ */
+export async function promptAndroidPackage(suggestion?: string): Promise<string> {
+  return input({
+    message: 'Android Package Name:',
+    default: suggestion,
+    validate: (value) => {
+      if (!value.trim()) {
+        return 'Package name is required';
+      }
+      // Same reverse-domain format
+      const pattern = /^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)+$/;
+      if (!pattern.test(value)) {
+        return 'Must be in reverse-domain format (e.g., com.yourcompany.appname)';
+      }
+      return true;
+    },
+  });
+}
+
+/**
+ * Prompt for platform selection (multi-select)
+ */
+export async function promptSelectPlatforms(): Promise<Platform[]> {
+  const selected = await checkbox({
+    message: 'Which platforms do you want to support?',
+    choices: [
+      { name: 'iOS', value: 'ios' as Platform, checked: true },
+      { name: 'Android', value: 'android' as Platform, checked: true },
+    ],
+  });
+
+  if (selected.length === 0) {
+    return ['ios', 'android'];
+  }
+
+  return selected;
 }

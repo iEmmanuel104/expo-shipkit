@@ -28,11 +28,12 @@ export const defaultConfig: ShipkitConfig = {
  */
 export function generateConfigContent(projectName: string, config: Partial<ShipkitConfig> = {}): string {
   const mergedConfig = { ...defaultConfig, ...config, projectName };
+  const safeName = projectName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   return `import { defineConfig } from 'expo-shipkit';
 
 export default defineConfig({
-  projectName: '${projectName}',
+  projectName: '${safeName}',
 
   platforms: {
     ios: ${mergedConfig.platforms.ios},
@@ -76,7 +77,7 @@ export default defineConfig({
   // },
 
   display: {
-    banner: '${projectName.toUpperCase()} DEPLOYMENT',
+    banner: '${safeName.toUpperCase()} DEPLOYMENT',
     colors: true,
   },
 });

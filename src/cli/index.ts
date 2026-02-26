@@ -5,6 +5,7 @@ import { deployCommand } from './commands/deploy.js';
 import { statusCommand } from './commands/status.js';
 import { versionCommand } from './commands/version.js';
 import { credentialsCommand } from './commands/credentials.js';
+import { doctorCommand } from './commands/doctor.js';
 
 const program = new Command();
 
@@ -19,6 +20,7 @@ program.addCommand(deployCommand);
 program.addCommand(statusCommand);
 program.addCommand(versionCommand);
 program.addCommand(credentialsCommand);
+program.addCommand(doctorCommand);
 
 // Default action (show help)
 program.action(() => {

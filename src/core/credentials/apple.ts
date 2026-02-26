@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { fileExists, readJsonFile, writeJsonFile } from '../../utils/fs.js';
+import { fileExists, readJsonFile, writeJsonFile, readFile } from '../../utils/fs.js';
 import type { EasConfig } from '../../types/eas.js';
 
 export interface AppleCredentials {
@@ -59,8 +59,22 @@ export function validateAppleCredentials(credentials: AppleCredentials, projectR
   }
 
   if (credentials.ascApiKeyPath) {
+    const cwd = projectRoot ?? process.cwd();
+    const fullPath = path.isAbsolute(credentials.ascApiKeyPath)
+      ? credentials.ascApiKeyPath
+      : path.join(cwd, credentials.ascApiKeyPath);
+
     if (!checkAppleApiKeyFile(credentials.ascApiKeyPath, projectRoot)) {
       errors.push(`API Key file not found: ${credentials.ascApiKeyPath}`);
+    } else {
+      // Validate .p8 file structure (PEM format check)
+      const content = readFile(fullPath);
+      if (content) {
+        const trimmed = content.trim();
+        if (!trimmed.startsWith('-----BEGIN PRIVATE KEY-----') || !trimmed.endsWith('-----END PRIVATE KEY-----')) {
+          errors.push('API Key file does not appear to be a valid .p8 key (missing PEM headers)');
+        }
+      }
     }
 
     if (!credentials.ascApiIssuerId) {

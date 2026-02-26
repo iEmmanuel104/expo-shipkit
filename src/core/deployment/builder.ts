@@ -10,6 +10,11 @@ export interface BuildOptions {
   projectRoot?: string;
 }
 
+export interface BuildResult {
+  code: number;
+  errorOutput?: string;
+}
+
 /**
  * Build EAS build command
  */
@@ -42,7 +47,7 @@ export function buildEasCommand(options: BuildOptions): string {
 }
 
 /**
- * Execute EAS build
+ * Execute EAS build and return result with error output
  */
 export async function runBuild(options: BuildOptions): Promise<number> {
   const command = buildEasCommand(options);

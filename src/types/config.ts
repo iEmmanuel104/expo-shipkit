@@ -96,6 +96,18 @@ export const ShipkitConfigSchema = z.object({
 
   // Display customization
   display: DisplayConfigSchema.default({ colors: true }),
+
+  // Monorepo support (optional)
+  monorepo: z.object({
+    root: z.string().optional(),
+    appDir: z.string().optional(),
+  }).optional(),
+
+  // Environment configuration (optional)
+  environments: z.record(z.string(), z.object({
+    env: z.record(z.string(), z.string()).optional(),
+    profile: z.enum(['development', 'preview', 'staging', 'production']).optional(),
+  })).optional(),
 });
 
 export type ShipkitConfig = z.infer<typeof ShipkitConfigSchema>;
