@@ -50,6 +50,33 @@ export interface PlatformConfigSnapshot {
 export interface DeploymentHistory {
   versions: Record<string, DeploymentRecord>;
   lastConfig: PlatformConfigSnapshot;
+  updates?: UpdateRecord[];
+  lastBuilds?: Partial<Record<Profile, LastBuildPointer>>;
+}
+
+/**
+ * EAS Update / OTA publish record
+ */
+export interface UpdateRecord {
+  branch: string;
+  profile: Profile;
+  platform: Platform | 'all';
+  message: string;
+  runtimeVersion?: string;
+  appVersion?: string;
+  commit?: string;
+  publishedAt: string;
+}
+
+/**
+ * Pointer to the last successful build for a profile
+ * (used by smart-deploy to diff JS-only changes since last build)
+ */
+export interface LastBuildPointer {
+  version: string;
+  commit?: string;
+  builtAt: string;
+  platforms?: Platform[];
 }
 
 /**

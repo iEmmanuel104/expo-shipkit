@@ -62,7 +62,15 @@ export interface ExpoAppJson {
     name: string;
     slug: string;
     version: string;
+    sdkVersion?: string;
+    runtimeVersion?: string | { policy: 'appVersion' | 'sdkVersion' | 'fingerprint' };
     owner?: string;
+    updates?: {
+      url?: string;
+      enabled?: boolean;
+      checkAutomatically?: 'ON_LOAD' | 'ON_ERROR_RECOVERY' | 'WIFI_ONLY' | 'NEVER';
+      fallbackToCacheTimeout?: number;
+    };
     extra?: {
       eas?: {
         projectId?: string;

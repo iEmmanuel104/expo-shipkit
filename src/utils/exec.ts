@@ -13,6 +13,19 @@ export interface ExecOptions {
   timeout?: number;
 }
 
+function withTimeout(
+  child: ReturnType<typeof spawn>,
+  timeout: number | undefined,
+  reject: (error: Error) => void,
+): NodeJS.Timeout | undefined {
+  if (!timeout) return undefined;
+
+  return setTimeout(() => {
+    child.kill('SIGTERM');
+    reject(new Error(`Command timed out after ${timeout}ms`));
+  }, timeout);
+}
+
 /**
  * Execute a command and return the result
  */
@@ -69,6 +82,63 @@ export function exec(command: string, options: ExecOptions = {}): Promise<ExecRe
 }
 
 /**
+ * Execute a command without a shell and return the result.
+ */
+export function execFile(command: string, args: string[] = [], options: ExecOptions = {}): Promise<ExecResult> {
+  return new Promise((resolve, reject) => {
+    const spawnOptions: SpawnOptions = {
+      shell: false,
+      cwd: options.cwd ?? process.cwd(),
+      env: { ...process.env, ...options.env },
+      stdio: options.silent ? 'pipe' : 'inherit',
+    };
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const child = spawn(command, args, spawnOptions);
+    const timeoutId = withTimeout(child, options.timeout, (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+
+    if (options.silent) {
+      child.stdout?.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr?.on('data', (data) => {
+        stderr += data.toString();
+      });
+    }
+
+    child.on('close', (code) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (settled) return;
+      settled = true;
+      resolve({
+        code: code ?? 0,
+        stdout,
+        stderr,
+      });
+    });
+
+    child.on('error', (error) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+  });
+}
+
+/**
  * Execute a command with inherited stdio (interactive)
  */
 export function execInteractive(command: string, options: ExecOptions = {}): Promise<number> {
@@ -87,6 +157,46 @@ export function execInteractive(command: string, options: ExecOptions = {}): Pro
     });
 
     child.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+/**
+ * Execute a command without a shell with inherited stdio.
+ */
+export function execInteractiveFile(command: string, args: string[] = [], options: ExecOptions = {}): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const spawnOptions: SpawnOptions = {
+      shell: false,
+      cwd: options.cwd ?? process.cwd(),
+      env: { ...process.env, ...options.env },
+      stdio: 'inherit',
+    };
+
+    let settled = false;
+    const child = spawn(command, args, spawnOptions);
+    const timeoutId = withTimeout(child, options.timeout, (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (settled) return;
+      settled = true;
+      resolve(code ?? 0);
+    });
+
+    child.on('error', (error) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (settled) return;
+      settled = true;
       reject(error);
     });
   });

@@ -34,6 +34,24 @@ export const HooksConfigSchema = z.object({
   postBuild: z.string().optional(),
   preSubmit: z.string().optional(),
   postSubmit: z.string().optional(),
+  preUpdate: z.string().optional(),
+  postUpdate: z.string().optional(),
+});
+
+/**
+ * EAS Update / OTA configuration
+ */
+export const UpdatesConfigSchema = z.object({
+  // Whether OTA updates are enabled for this project
+  enabled: z.boolean().default(false),
+  // Profile-to-branch overrides; if omitted the branch defaults to the profile name
+  channels: z.record(z.string(), z.string()).optional(),
+  // When true, `shipkit deploy` offers an OTA path on JS-only diffs
+  smartDeploy: z.boolean().default(true),
+  // Update message: literal string, or 'auto' to use the latest commit subject
+  defaultMessage: z.string().optional(),
+  // EAS runtimeVersion policy used when generating expo-updates config
+  runtimeVersionPolicy: z.enum(['appVersion', 'sdkVersion', 'fingerprint']).default('appVersion'),
 });
 
 /**
@@ -91,6 +109,9 @@ export const ShipkitConfigSchema = z.object({
     ios: IosSubmitConfigSchema.default({}),
   }).optional(),
 
+  // OTA Updates
+  updates: UpdatesConfigSchema.optional(),
+
   // Hooks
   hooks: HooksConfigSchema.optional(),
 
@@ -115,6 +136,7 @@ export type PlatformBuildConfig = z.infer<typeof PlatformBuildConfigSchema>;
 export type AndroidSubmitConfig = z.infer<typeof AndroidSubmitConfigSchema>;
 export type IosSubmitConfig = z.infer<typeof IosSubmitConfigSchema>;
 export type HooksConfig = z.infer<typeof HooksConfigSchema>;
+export type UpdatesConfig = z.infer<typeof UpdatesConfigSchema>;
 export type DisplayConfig = z.infer<typeof DisplayConfigSchema>;
 export type CriticalConfig = z.infer<typeof CriticalConfigSchema>;
 

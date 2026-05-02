@@ -4,8 +4,8 @@
  */
 
 // Configuration
-export { defineConfig, ShipkitConfigSchema } from './types/config.js';
-export type { ShipkitConfig, HooksConfig, DisplayConfig } from './types/config.js';
+export { defineConfig, ShipkitConfigSchema, UpdatesConfigSchema } from './types/config.js';
+export type { ShipkitConfig, HooksConfig, UpdatesConfig, DisplayConfig } from './types/config.js';
 
 // Core functionality
 export { loadConfig, isInitialized, isExpoProject, loadAppJson, loadEasJson } from './core/config/loader.js';
@@ -18,6 +18,44 @@ export { detectConfigChanges, readCurrentPlatformConfig } from './core/deploymen
 export { runBuild, buildEasCommand } from './core/deployment/builder.js';
 export type { BuildResult } from './core/deployment/builder.js';
 export { runSubmit, buildSubmitCommand } from './core/deployment/submitter.js';
+
+// OTA Updates
+export {
+  runUpdate,
+  buildUpdateCommand,
+  buildUpdateArgs,
+  resolveBranch,
+  validateUpdatesSetup,
+  partitionIssues,
+  detectJsOnlyChanges,
+  getCurrentCommit,
+  getLatestCommitSubject,
+  readRuntimeVersion,
+  resolveRuntimeVersion,
+  writeRuntimeVersionPolicy,
+  hasUpdatesUrl,
+  setupUpdates,
+  buildUpdatesConfigSnippet,
+  assertUpdateBranchName,
+  getUpdateBranchValidationError,
+  getUpdateMessageValidationError,
+  isDeploymentProfile,
+  isRuntimeVersionPolicy,
+  isUpdatePlatform,
+  parseDeploymentProfile,
+  parseRuntimeVersionPolicy,
+  parseUpdatePlatform,
+} from './core/updates/index.js';
+export type {
+  UpdateOptions,
+  UpdatesValidationIssue,
+  JsOnlyChangeResult,
+  RuntimeVersionPolicy,
+  RuntimeVersionValue,
+  SetupUpdatesOptions,
+  SetupUpdatesResult,
+  UpdatePlatform,
+} from './core/updates/index.js';
 
 // Version management
 export { VersionManager, compareVersions, isNewerVersion } from './core/version/manager.js';
@@ -96,6 +134,8 @@ export type {
   DeploymentSummary,
   SyncWarning,
   VersionBumpResult,
+  UpdateRecord,
+  LastBuildPointer,
 } from './types/deployment.js';
 
 export type {

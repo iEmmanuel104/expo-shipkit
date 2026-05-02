@@ -190,12 +190,13 @@ export function displayInitSuccess(projectName: string): void {
  * Display doctor check results
  */
 export function displayDoctorResults(summary: DoctorSummary): void {
-  const categoryOrder = ['environment', 'project', 'credentials', 'security'] as const;
+  const categoryOrder = ['environment', 'project', 'credentials', 'security', 'updates'] as const;
   const categoryLabels: Record<string, string> = {
     environment: 'Environment',
     project: 'Project',
     credentials: 'Credentials',
     security: 'Security',
+    updates: 'OTA Updates',
   };
 
   for (const cat of categoryOrder) {

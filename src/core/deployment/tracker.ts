@@ -7,6 +7,8 @@ import type {
   DeploymentRecord,
   ProfileDeploymentStatus,
   SyncWarning,
+  UpdateRecord,
+  LastBuildPointer,
 } from '../../types/deployment.js';
 
 const DEPLOYMENTS_FILE = '.deployments.json';
@@ -31,8 +33,12 @@ function createEmptyDeploymentHistory(): DeploymentHistory {
       android: {},
       ios: {},
     },
+    updates: [],
+    lastBuilds: {},
   };
 }
+
+const MAX_UPDATE_RECORDS = 100;
 
 /**
  * Deployment tracker class
@@ -99,6 +105,57 @@ export class DeploymentTracker {
 
     this.data.versions[version][platform][profile as keyof ProfileDeploymentStatus] = new Date().toISOString();
     this.save();
+  }
+
+  /**
+   * Record a successful build as the "last build" for a profile.
+   * Used by smart-deploy to compute JS-only diffs against this snapshot.
+   */
+  public recordLastBuild(profile: Profile, version: string, commit?: string, platform?: Platform): void {
+    if (!this.data.lastBuilds) this.data.lastBuilds = {};
+    const previous = this.data.lastBuilds[profile];
+    const previousPlatforms = previous?.version === version && previous.commit === commit
+      ? previous.platforms ?? []
+      : [];
+    const platforms = platform
+      ? [...new Set([...previousPlatforms, platform])]
+      : previousPlatforms.length > 0
+        ? previousPlatforms
+        : undefined;
+    this.data.lastBuilds[profile] = {
+      version,
+      commit,
+      builtAt: new Date().toISOString(),
+      platforms,
+    };
+    this.save();
+  }
+
+  /**
+   * Get the last successful build pointer for a profile, if any.
+   */
+  public getLastBuild(profile: Profile): LastBuildPointer | null {
+    return this.data.lastBuilds?.[profile] ?? null;
+  }
+
+  /**
+   * Record an EAS Update / OTA publish. Bounded to MAX_UPDATE_RECORDS most recent.
+   */
+  public recordUpdate(record: UpdateRecord): void {
+    if (!this.data.updates) this.data.updates = [];
+    this.data.updates.push(record);
+    if (this.data.updates.length > MAX_UPDATE_RECORDS) {
+      this.data.updates = this.data.updates.slice(-MAX_UPDATE_RECORDS);
+    }
+    this.save();
+  }
+
+  /**
+   * Get the OTA update history (newest last). Optionally filter by profile.
+   */
+  public getUpdateHistory(profile?: Profile): UpdateRecord[] {
+    const all = this.data.updates ?? [];
+    return profile ? all.filter((u) => u.profile === profile) : all;
   }
 
   /**

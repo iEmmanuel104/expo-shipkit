@@ -6,6 +6,7 @@ import { statusCommand } from './commands/status.js';
 import { versionCommand } from './commands/version.js';
 import { credentialsCommand } from './commands/credentials.js';
 import { doctorCommand } from './commands/doctor.js';
+import { updateCommand } from './commands/update.js';
 
 const program = new Command();
 
@@ -21,6 +22,7 @@ program.addCommand(statusCommand);
 program.addCommand(versionCommand);
 program.addCommand(credentialsCommand);
 program.addCommand(doctorCommand);
+program.addCommand(updateCommand);
 
 // Default action (show help)
 program.action(() => {

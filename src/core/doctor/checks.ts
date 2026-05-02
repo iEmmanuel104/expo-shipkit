@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from '../../utils/exec.js';
-import { fileExists } from '../../utils/fs.js';
+import { fileExists, readJsonFile } from '../../utils/fs.js';
 import { isExpoProject, hasEasJson, isInitialized } from '../config/loader.js';
 import { checkAllPrerequisites, type PrerequisiteResult } from '../prerequisites/checker.js';
 import { detectAppJsonGaps } from '../generators/app-json.js';
@@ -10,8 +10,11 @@ import { hasAllCredentialPatterns } from '../generators/gitignore.js';
 import { checkAppleCredentials, validateAppleCredentials } from '../credentials/apple.js';
 import { checkGoogleCredentials, validateGoogleCredentials } from '../credentials/google.js';
 import { isWindows, canBuildIOS } from '../../utils/platform.js';
+import { validateUpdatesSetup } from '../updates/validator.js';
+import { loadConfig } from '../config/loader.js';
+import type { EasConfig } from '../../types/eas.js';
 
-export type CheckCategory = 'environment' | 'project' | 'credentials' | 'security';
+export type CheckCategory = 'environment' | 'project' | 'credentials' | 'security' | 'updates';
 
 export interface DoctorCheckResult {
   category: CheckCategory;
@@ -162,6 +165,16 @@ export async function runProjectChecks(projectRoot?: string): Promise<DoctorChec
 export async function runCredentialChecks(projectRoot?: string): Promise<DoctorCheckResult[]> {
   const cwd = projectRoot ?? process.cwd();
   const results: DoctorCheckResult[] = [];
+  const ascPlacementIssues = findMisplacedAscConfig(cwd);
+  if (ascPlacementIssues.length > 0) {
+    results.push({
+      category: 'credentials',
+      name: 'ASC Config Placement',
+      status: 'warn',
+      message: `App Store Connect fields should live under eas.submit.<profile>.ios, not ${ascPlacementIssues.slice(0, 3).join(', ')}`,
+      fix: 'Move ascAppId, ascApiKeyPath, ascApiIssuerId, and ascApiKeyId into the iOS submit profile',
+    });
+  }
 
   // iOS credentials
   const appleCredentials = checkAppleCredentials(cwd);
@@ -224,6 +237,31 @@ export async function runCredentialChecks(projectRoot?: string): Promise<DoctorC
   }
 
   return results;
+}
+
+function findMisplacedAscConfig(projectRoot: string): string[] {
+  const easJson = readJsonFile<EasConfig & Record<string, unknown>>(path.join(projectRoot, 'eas.json'));
+  const issues: string[] = [];
+  const ascKeys = ['ascAppId', 'ascApiKeyPath', 'ascApiIssuerId', 'ascApiKeyId'];
+
+  for (const [profileName, buildProfile] of Object.entries(easJson?.build ?? {})) {
+    const iosConfig = (buildProfile as { ios?: Record<string, unknown> }).ios;
+    for (const key of ascKeys) {
+      if (iosConfig && key in iosConfig) {
+        issues.push(`eas.build.${profileName}.ios.${key}`);
+      }
+    }
+  }
+
+  const submitRoot = easJson?.submit as Record<string, unknown> | undefined;
+  const rootIosSubmit = submitRoot?.ios as Record<string, unknown> | undefined;
+  for (const key of ascKeys) {
+    if (rootIosSubmit && key in rootIosSubmit) {
+      issues.push(`eas.submit.ios.${key}`);
+    }
+  }
+
+  return issues;
 }
 
 /**
@@ -370,6 +408,63 @@ export async function runSecurityChecks(projectRoot?: string): Promise<DoctorChe
       status: 'warn',
       message: 'Could not check git history',
       fix: undefined,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Run OTA / EAS Update checks.
+ */
+export async function runUpdatesChecks(projectRoot?: string): Promise<DoctorCheckResult[]> {
+  const cwd = projectRoot ?? process.cwd();
+  const results: DoctorCheckResult[] = [];
+
+  // Pull config so we can use the configured channels/profiles when validating
+  let config = null;
+  try {
+    config = await loadConfig(cwd);
+  } catch {
+    // ignore — validator works with defaults
+  }
+
+  // If updates are explicitly disabled (or no config at all), surface a single
+  // informational warn — no point running deeper checks.
+  if (!config?.updates?.enabled) {
+    results.push({
+      category: 'updates',
+      name: 'OTA Updates',
+      status: 'warn',
+      message: 'OTA updates are not enabled in shipkit.config.ts',
+      fix: 'Run "shipkit update setup" to enable EAS Update for this project',
+    });
+    return results;
+  }
+
+  const issues = validateUpdatesSetup({
+    profiles: config.profiles,
+    updates: config.updates,
+    projectRoot: cwd,
+  });
+
+  if (issues.length === 0) {
+    results.push({
+      category: 'updates',
+      name: 'OTA Setup',
+      status: 'pass',
+      message: 'expo-updates installed, runtimeVersion + updates.url configured, channels wired',
+    });
+    return results;
+  }
+
+  for (const issue of issues) {
+    results.push({
+      category: 'updates',
+      name: issue.field,
+      status: issue.severity === 'error' ? 'fail' : 'warn',
+      message: issue.message,
+      fix: issue.fix,
     });
   }
 

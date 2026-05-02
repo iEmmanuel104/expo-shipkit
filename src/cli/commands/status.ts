@@ -1,8 +1,9 @@
 import { Command } from 'commander';
+import pc from 'picocolors';
 import { logger } from '../../ui/logger.js';
 import { displayVersionStatus, displaySyncWarnings, displayConfigChanges } from '../../ui/display.js';
 import { loadConfig, isInitialized } from '../../core/config/loader.js';
-import { DeploymentTracker } from '../../core/deployment/tracker.js';
+import { DeploymentTracker, formatDate } from '../../core/deployment/tracker.js';
 import { VersionManager } from '../../core/version/manager.js';
 import { detectConfigChanges } from '../../core/deployment/config-detector.js';
 import type { Platform } from '../../types/deployment.js';
@@ -39,6 +40,7 @@ export const statusCommand = new Command('status')
               allVersions.map((v) => [v, tracker.getVersionStatus(v)])
             ),
         lastConfig: tracker.getData().lastConfig,
+        updates: tracker.getUpdateHistory(),
       };
       console.log(JSON.stringify(data, null, 2));
       return;
@@ -100,6 +102,25 @@ export const statusCommand = new Command('status')
       if (!options.all && previousVersions.length > 3) {
         logger.newLine();
         logger.dim(`... and ${previousVersions.length - 3} more. Use --all to see all versions.`);
+      }
+    }
+
+    // OTA update history (most recent first)
+    const updates = tracker.getUpdateHistory();
+    if (updates.length > 0) {
+      const recent = options.all ? [...updates].reverse() : [...updates].reverse().slice(0, 5);
+      logger.newLine();
+      logger.dim('Recent OTA updates:');
+      for (const u of recent) {
+        const platform = u.platform === 'all' ? 'ios+android' : u.platform;
+        const meta = `${u.profile} → ${u.branch} (${platform})`;
+        const when = formatDate(u.publishedAt);
+        const msg = u.message.length > 50 ? u.message.slice(0, 47) + '...' : u.message;
+        console.log(`  ${pc.cyan('•')} ${pc.bold(meta)} — ${pc.dim(when)}`);
+        console.log(`    ${pc.dim(msg)}`);
+      }
+      if (!options.all && updates.length > 5) {
+        logger.dim(`  ... and ${updates.length - 5} more updates. Use --all to see all.`);
       }
     }
 

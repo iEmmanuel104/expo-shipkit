@@ -30,6 +30,25 @@ export function generateConfigContent(projectName: string, config: Partial<Shipk
   const mergedConfig = { ...defaultConfig, ...config, projectName };
   const safeName = projectName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+  const updates = config.updates;
+  const updatesBlock = updates?.enabled
+    ? `
+  updates: {
+    enabled: true,
+    smartDeploy: ${updates.smartDeploy !== false},
+    runtimeVersionPolicy: '${updates.runtimeVersionPolicy ?? 'appVersion'}',${updates.channels ? `
+    channels: ${JSON.stringify(updates.channels)},` : ''}
+  },
+`
+    : `
+  // Uncomment to enable OTA updates (run "shipkit update setup" first)
+  // updates: {
+  //   enabled: true,
+  //   smartDeploy: true,
+  //   runtimeVersionPolicy: 'appVersion',
+  // },
+`;
+
   return `import { defineConfig } from 'expo-shipkit';
 
 export default defineConfig({
@@ -52,7 +71,7 @@ export default defineConfig({
     ios: { nonInteractive: ${mergedConfig.build.ios.nonInteractive} },
     autoClearCache: ${mergedConfig.build.autoClearCache},
   },
-
+${updatesBlock}
   // Uncomment and configure for automated submissions
   // submit: {
   //   android: {

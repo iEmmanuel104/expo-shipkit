@@ -3,6 +3,7 @@ import {
   runProjectChecks,
   runCredentialChecks,
   runSecurityChecks,
+  runUpdatesChecks,
   type CheckCategory,
   type DoctorCheckResult,
 } from './checks.js';
@@ -41,6 +42,10 @@ export async function runDoctorChecks(
 
   if (!category || category === 'security') {
     results.push(...(await runSecurityChecks(projectRoot)));
+  }
+
+  if (!category || category === 'updates') {
+    results.push(...(await runUpdatesChecks(projectRoot)));
   }
 
   return {

@@ -21,6 +21,15 @@ export default defineConfig({
     autoClearCache: true,
   },
 
+  // OTA / EAS Update — run "shipkit update setup" to enable
+  // updates: {
+  //   enabled: true,
+  //   smartDeploy: true,                           // offer OTA on JS-only diffs in `shipkit deploy`
+  //   runtimeVersionPolicy: 'appVersion',          // 'appVersion' | 'sdkVersion' | 'fingerprint'
+  //   defaultMessage: 'auto',                      // 'auto' uses latest commit subject
+  //   // channels: { production: 'main-prod' },    // optional per-profile branch override
+  // },
+
   // Uncomment and configure for automated submissions
   // submit: {
   //   android: {

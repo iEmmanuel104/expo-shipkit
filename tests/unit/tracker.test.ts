@@ -91,6 +91,16 @@ describe('DeploymentTracker', () => {
     expect(lastConfig.targetSdkVersion).toBe(35);
   });
 
+  it('should track last build platform coverage per profile', () => {
+    const tracker = new DeploymentTracker(tempDir);
+    tracker.initialize();
+
+    tracker.recordLastBuild('production', '1.0.0', 'abc123', 'ios');
+    tracker.recordLastBuild('production', '1.0.0', 'abc123', 'android');
+
+    expect(tracker.getLastBuild('production')?.platforms).toEqual(['ios', 'android']);
+  });
+
   it('should sort versions in descending order', () => {
     const tracker = new DeploymentTracker(tempDir);
     tracker.initialize();

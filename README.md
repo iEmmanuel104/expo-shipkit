@@ -125,6 +125,46 @@ npx shipkit credentials check
 npx shipkit credentials guide [--platform ios|android]
 ```
 
+### `shipkit update`
+
+Publish an EAS Update (OTA) to a branch — ships JS-only changes to existing
+installs without going through App Store / Play Store review.
+
+```bash
+# One-time bootstrap (installs expo-updates, writes runtimeVersion + channels)
+npx shipkit update setup [--policy appVersion|sdkVersion|fingerprint]
+
+# Publish an update
+npx shipkit update [options]
+
+Options:
+  --profile <profile>      Build profile (development|preview|staging|production)
+  --platform <platform>    ios | android | all (default: prompts)
+  --branch <branch>        Override the channel→branch mapping
+  -m, --message <message>  Update message
+  --auto-message           Use latest commit subject as the message
+  --skip-hooks             Skip pre/postUpdate hooks
+  --non-interactive        Pass --non-interactive to eas update
+  -y, --yes                Skip confirmation
+```
+
+`shipkit update setup` is idempotent — it installs `expo-updates` if missing,
+preserves an existing `runtimeVersion` unless `--policy` is supplied, runs
+`eas update:configure` to provision the project URL, and writes
+`build.<profile>.channel` into `eas.json` (one channel per profile, name
+matching the profile by default).
+
+`shipkit deploy` automatically detects when a deploy could ship as an OTA
+instead of a native rebuild. When `updates.enabled` is true and changes since
+the last build of the selected profile are JS-only (no `ios/`, `android/`,
+`plugins`, native deps, or `version` change), the deploy wizard asks whether
+to publish an OTA instead. Set `updates.smartDeploy: false` to disable the
+prompt.
+
+OTA publishing **coexists** with the iOS App Store Connect deployment story —
+ASC keys live under `eas.submit.<profile>.ios.*` while OTA channels live under
+`eas.build.<profile>.channel`. The two paths never touch the same fields.
+
 ## Configuration
 
 Create a `shipkit.config.ts` in your project root:
@@ -154,6 +194,15 @@ export default defineConfig({
     autoClearCache: true,               // Auto-clear on config changes
   },
 
+  // OTA / EAS Update — opt in by running "shipkit update setup"
+  updates: {
+    enabled: true,
+    smartDeploy: true,                  // offer OTA on JS-only diffs in `shipkit deploy`
+    runtimeVersionPolicy: 'appVersion', // 'appVersion' | 'sdkVersion' | 'fingerprint'
+    defaultMessage: 'auto',             // 'auto' uses latest commit subject
+    // channels: { production: 'main-prod' },  // optional per-profile branch override
+  },
+
   // Store submission config
   submit: {
     android: {
@@ -175,6 +224,8 @@ export default defineConfig({
     postBuild: undefined,
     preSubmit: undefined,
     postSubmit: 'echo "Deployed!"',
+    preUpdate: undefined,               // runs before `shipkit update`
+    postUpdate: undefined,              // runs after a successful OTA publish
   },
 
   display: {

@@ -19,8 +19,9 @@ import { validateAppleCredentials, updateAppleCredentials, getAppleSetupInstruct
 import { validateGoogleCredentials, updateGoogleCredentials, getGoogleSetupInstructions } from '../../core/credentials/google.js';
 import { promptInput, promptFilePath } from '../../ui/prompts.js';
 import { runDoctorChecks } from '../../core/doctor/runner.js';
+import { setupUpdates } from '../../core/updates/setup.js';
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 export const initCommand = new Command('init')
   .description('Initialize expo-shipkit in your Expo project')
@@ -304,13 +305,72 @@ async function runWizardInit(cwd: string, options: { force?: boolean; skipScript
     checklistItem('Android credentials skipped', 'skip');
   }
 
-  // ─── Step 7: Project Files ───
-  wizardStep(7, TOTAL_STEPS, 'Project Files');
+  // ─── Step 7: OTA Updates (skippable) ───
+  wizardStep(7, TOTAL_STEPS, 'OTA Updates (Optional)');
+
+  let updatesEnabled = false;
+  let updatesChannels: Record<string, string> | undefined;
+
+  const setupOta = await promptConfirm('Configure EAS Update / OTA updates now?', false);
+  if (setupOta) {
+    try {
+      const result = await setupUpdates({
+        profiles: ['preview', 'production'],
+        runtimeVersionPolicy: 'appVersion',
+        installExpoUpdates: true,
+        runEasUpdateConfigure: true,
+        projectRoot: cwd,
+      });
+      updatesEnabled = true;
+      updatesChannels = Object.keys(result.channelMap).length > 0 ? result.channelMap : undefined;
+
+      if (result.installedExpoUpdates) {
+        checklistItem('expo-updates installed', 'pass');
+        filesModified.push('package.json (expo-updates)');
+      }
+      if (result.appJsonChanged) {
+        checklistItem('app.json: runtimeVersion + updates.url', 'pass');
+        filesModified.push('app.json (runtimeVersion / updates.url)');
+      }
+      if (result.easJsonChanged) {
+        checklistItem('eas.json: channels per profile', 'pass');
+        filesModified.push('eas.json (channels)');
+      }
+      if (result.warnings.length > 0) {
+        for (const w of result.warnings) {
+          checklistItem(w, 'warn');
+          warnings.push(w);
+        }
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      checklistItem(`OTA setup failed: ${msg}`, 'fail');
+      warnings.push(`OTA setup failed: ${msg}`);
+    }
+  } else {
+    checklistItem('OTA updates skipped', 'skip');
+    logger.dim('  Run "shipkit update setup" later to enable OTA updates.');
+  }
+
+  // ─── Step 8: Project Files ───
+  wizardStep(8, TOTAL_STEPS, 'Project Files');
 
   try {
-    // Generate shipkit.config.ts
+    // Generate shipkit.config.ts (with updates block when OTA was enabled in step 7)
     const configPath = path.join(cwd, 'shipkit.config.ts');
-    const configContent = generateConfigContent(projectName);
+    const configContent = generateConfigContent(
+      projectName,
+      updatesEnabled
+        ? {
+            updates: {
+              enabled: true,
+              smartDeploy: true,
+              runtimeVersionPolicy: 'appVersion',
+              channels: updatesChannels,
+            },
+          }
+        : {},
+    );
     writeFile(configPath, configContent);
     checklistItem('shipkit.config.ts', 'pass');
     filesCreated.push('shipkit.config.ts');
@@ -374,8 +434,8 @@ async function runWizardInit(cwd: string, options: { force?: boolean; skipScript
     process.exit(1);
   }
 
-  // ─── Step 8: Verification ───
-  wizardStep(8, TOTAL_STEPS, 'Verification');
+  // ─── Step 9: Verification ───
+  wizardStep(9, TOTAL_STEPS, 'Verification');
 
   const verifySpinner = createSpinner('Running health checks...').start();
   const summary = await runDoctorChecks({ projectRoot: cwd });

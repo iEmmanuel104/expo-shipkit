@@ -7,7 +7,7 @@ import type { CheckCategory } from '../../core/doctor/checks.js';
 
 export const doctorCommand = new Command('doctor')
   .description('Check project health and configuration')
-  .option('--category <category>', 'Check specific category (environment|project|credentials|security)')
+  .option('--category <category>', 'Check specific category (environment|project|credentials|security|updates)')
   .option('--json', 'Output results as JSON')
   .action(async (options) => {
     const cwd = process.cwd();
